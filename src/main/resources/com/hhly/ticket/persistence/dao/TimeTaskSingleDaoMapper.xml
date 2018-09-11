@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hhly.ticket.persistence.dao.TimeTaskSingleDaoMapper">
+  <update id="updateExecute">
+		UPDATE time_task_single
+		SET execute_time = now(),
+		 execute_ip = #{serviceIp}
+		WHERE
+			project = #{project}
+		AND NAME = #{name}
+		AND DATE_ADD(
+			execute_time,
+			INTERVAL execute_interval SECOND
+		) <![CDATA[<]]> now()  
+  </update>
+</mapper>

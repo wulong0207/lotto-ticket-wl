@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.hhly.ticket.persistence.dao.OrderInfoDaoMapper" >
+<update id="updateOrderStatus">
+   update ORDER_INFO 
+   set ORDER_STATUS = #{status},
+   	   UPDATE_TIME = now()
+   where ORDER_CODE in (
+     <foreach collection="orders" separator="," item="item">
+       #{item}
+     </foreach>
+   ) and ORDER_STATUS != #{status}
+   and ORDER_STATUS in (4,5,6,7)
+</update>
+<update id="updateOrderStatusOutTicket">
+	   update ORDER_INFO 
+	   set ORDER_STATUS = CASE ORDER_CODE
+	   <foreach collection="orders" item="item" close="END">
+	       WHEN #{item.orderCode} THEN  #{item.orderStatus}
+	   </foreach>
+	   ,COME_OUT_TIME = CASE ORDER_CODE
+	   <foreach collection="orders" item="item" close="END">
+	   	   WHEN #{item.orderCode} THEN  #{item.comeOutTime,jdbcType=TIMESTAMP}
+	   </foreach>
+	   ,UPDATE_TIME = now()
+	   where ORDER_CODE in (
+	     <foreach collection="orders" item="item" separator=",">
+	         #{item.orderCode}
+	   	  </foreach>
+	   )and ORDER_STATUS in(5,7)
+</update>
+<select id="listOrderOuting" resultType="String">
+  	SELECT
+		order_code
+	FROM
+		order_info
+	WHERE
+		order_status = 5
+	AND lottery_code = #{lotteryCode}
+	AND end_check_time <![CDATA[<=]]> now()
+</select>
+<select id="listOrderOutFail" resultType="String">
+   select order_code from ticket_info 
+	where order_code in (
+	   <foreach collection="orders" item="item" separator=",">
+	       #{item}
+	   </foreach>
+	)
+	and ticket_status <![CDATA[<>]]> 4
+	group by order_code
+</select>
+<select id="getOrderStatus" resultType="int">
+	 SELECT
+		order_status
+	FROM
+		order_info
+	WHERE
+		order_code = #{orderCode}
+</select>
+
+<update id="updateOrderStatusOutTicketByOne" parameterType="com.hhly.ticket.service.entity.OrderStatusBO">
+   update ORDER_INFO 
+   set ORDER_STATUS = #{orderStatus}
+       ,UPDATE_TIME = now()
+       ,COME_OUT_TIME = #{comeOutTime,jdbcType=TIMESTAMP}
+   where ORDER_CODE = #{orderCode}
+   and ORDER_STATUS in(5,7) 
+</update>
+</mapper>

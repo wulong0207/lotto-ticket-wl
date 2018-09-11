@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.hhly.ticket.persistence.dao.TicketInfoDaoMapper" >
+   <select id="listTicketStatus" resultType="int">
+      /*master*/
+       select id 
+       from TICKET_INFO 
+       where
+       id in (
+       	 <foreach collection="ids" item="item" separator=",">
+       	    #{item}
+       	 </foreach> 
+       ) 
+       and TICKET_STATUS = #{status}
+   </select>
+   <update id="updateTicketStatusByOrderCode">
+   	  update TICKET_INFO
+       set 
+          TICKET_STATUS = #{status}
+          , ticket_remark = #{remark}
+       where order_code in (
+         <foreach collection="orderCodes" separator="," item="item">
+            #{item}
+         </foreach>
+       )
+   </update>
+   <sql id="ticket_info">
+   		  id,
+          LOTTERY_CODE LOTTERYCODE,
+          LOTTERY_ISSUE LOTTERYISSUE,
+          TICKET_MONEY TICKETMONEY,
+          CHANNEL_ID CHANNELID,
+          ORDER_CODE ORDERCODE,
+          END_TICKET_TIME ENDTICKETTIME,
+          CONTENT_TYPE CONTENTTYPE,
+          BUY_SCREEN BUYSCREEN,
+          MULTIPLE_NUM MULTIPLENUM,
+          LOTTERY_CHILD_CODE LOTTERYCHILDCODE,
+          TICKET_CONTENT TICKETCONTENT,
+          SALE_TIME SALETIME,
+          LOTTO_ADD LOTTOADD,
+          start_Match_Time startMatchTime,
+          ticket_status ticketstatus,
+          ticket_remark ticketRemark,
+          BATCH_NUM BATCHNUM,
+          ticket_change ticketChange,
+          activity_source activitySource,
+          order_detail_id orderDetailId,
+          user_id userid,
+          winning_status winningstatus,
+          change_id changeId,
+          redeem_code redeemCode,
+          channel_id channelId
+   </sql>
+   <!-- 查询待分配的有效票信息 -->
+   <select id="getTicket" resultType="com.hhly.ticket.service.entity.TicketBO">
+       /*master*/
+       select 
+          <include refid="ticket_info"></include>
+       from TICKET_INFO
+       where ORDER_CODE in (
+         <foreach collection="orders" separator="," item="item">
+             #{item}
+         </foreach>
+       )
+       and TICKET_STATUS  = 1
+   </select>
+   <update id="updateTicketSendDealer">
+   	   <foreach collection="tickets" item="item">
+		   update TICKET_INFO
+	       set
+	          TICKET_STATUS = #{item.ticketStatus},
+	          BATCH_NUM = #{item.batchNum},
+	          SEND_CHANNEL_TIME = now(),
+	          BATCH_NUM_SEQ = #{item.batchNumSeq},
+	          CHANNEL_REMARK = #{item.channelRemark,jdbcType=VARCHAR},
+	          receipt_content = #{item.receiptContent,jdbcType=VARCHAR},
+	          ticket_remark = #{item.ticketRemark,jdbcType=VARCHAR},
+	          third_Num = #{item.thirdNum,jdbcType=VARCHAR},
+	          channel_ticket_content = #{item.channelTicketContent,jdbcType=VARCHAR}
+	       where id = #{item.id};
+	   </foreach>
+   </update>
+   <select id="listNoAllocationTicket" resultType="com.hhly.ticket.service.entity.TicketBO">
+       select 
+          <include refid="ticket_info"></include>
+       from TICKET_INFO
+       where TICKET_STATUS  = 1
+       and CREATE_TIME <![CDATA[<=]]> #{splitTime,jdbcType=TIMESTAMP}
+       and end_ticket_time > now()
+       <if test="lotteryCode !=null and lotteryCode != ''">
+      		 and lottery_code = #{lotteryCode}
+       </if>
+       <if test="lotteryIssue !=null and lotteryIssue != ''">
+      		 and lottery_issue = #{lotteryIssue}
+       </if>
+   </select>
+   <update id="updateTicketAllocation">
+      <foreach collection="tickets" item="item">
+		   update TICKET_INFO
+	       set 
+	          TICKET_STATUS = #{item.ticketStatus},
+	          CHANNEL_ID = #{item.channelId},
+	          CHANNEL_ALLOCATION_SEND_TIME = #{item.outTime,jdbcType=TIMESTAMP},
+	          third_num = null,
+	          ticket_change=#{item.ticketChange,jdbcType=VARCHAR}
+	       where id = #{item.id};
+	   </foreach>
+   </update>
+   <select id="listAllocationTicket"  resultType="com.hhly.ticket.service.entity.TicketBO">
+  	   select 
+          <include refid="ticket_info"></include>
+       from TICKET_INFO
+       where TICKET_STATUS  = 2
+       and end_ticket_time > now()
+       <if test="outTime != null">
+       	  and CHANNEL_ALLOCATION_SEND_TIME <![CDATA[<=]]> #{outTime,jdbcType=TIMESTAMP}
+       </if>
+       order by id
+   </select>
+   <update id="updateOutTicket">
+   	  <foreach collection="tickets" item="item">
+		   update TICKET_INFO
+	       set 
+	          TICKET_STATUS = #{item.ticketStatus},
+	          <if test="item.thirdNum != null">
+	          	THIRD_NUM = #{item.thirdNum,jdbcType=VARCHAR},
+	          </if>
+	          CHANNEL_REMARK =#{item.channelRemark,jdbcType=VARCHAR},
+	          OFFICIAL_NUM = #{item.officialNum,jdbcType=VARCHAR},
+	          RECEIPT_TIME = now(),
+	          receipt_content = #{item.receiptContent,jdbcType=VARCHAR},
+	          receipt_content_detail = #{item.receiptContentDetail,jdbcType=VARCHAR},
+	          ticket_remark = #{item.ticketRemark,jdbcType=VARCHAR}
+	          <if test="item.ticketStatus == 4">
+		          ,COME_OUT_TIME = now()
+	          </if>
+	       where BATCH_NUM_SEQ = #{item.batchNumSeq}
+	        and BATCH_NUM = #{item.batchNum}
+	        and TICKET_STATUS != #{item.ticketStatus};
+	   </foreach>
+   </update>
+   <select id="listOrderTicketStatus" resultType="com.hhly.ticket.service.entity.TicketStatusBO">
+      /*master*/
+      select ORDER_CODE ORDERCODE, GROUP_CONCAT(ticket_status) status
+	  from TICKET_INFO
+	  where ORDER_CODE in (select ORDER_CODE
+	                        from TICKET_INFO
+	                        where batch_num in (
+	                          <foreach collection="betchNums" separator="," item="item">
+	                              #{item}
+	                          </foreach>
+	                        )
+	                        and order_code !=''
+	                      )
+	  group by ORDER_CODE
+   </select>
+   <select id="listBatchNumCheckTicket" resultType="com.hhly.ticket.service.entity.DealerCheckBO">
+		select 
+			 DISTINCT batch_num batchnum, 
+			 CHANNEL_ID CHANNELID,
+			 lottery_code lotterycode,
+			 LOTTERY_CHILD_CODE lotteryChildCode
+		from ticket_info
+	    where ticket_status in(3,-2,-1)
+	          and winning_status = 1
+	          and batch_num is not null
+	         <if test="lotteryCode != null">
+	          	 and lottery_code = #{lotteryCode}
+	         </if>
+	         <if test="batchNums != null">
+	        	 and batch_num in (
+	        	  <foreach collection="batchNums" separator="," item="item">
+	        	     #{item}
+	        	  </foreach>
+	        	 )
+	         </if>
+	         <if test="orderCode != null and orderCode != ''">
+	             and ORDER_CODE = #{orderCode}
+	         </if>
+   </select>
+   <select id="getAgainTicket" parameterType="com.hhly.ticket.base.vo.AgainOutTicketVO" 
+     resultType="com.hhly.ticket.service.entity.TicketBO">
+      /*master*/
+   	   select 
+          <include refid="ticket_info"></include>
+       from TICKET_INFO
+       where TICKET_STATUS  != 4
+       and end_ticket_time > now()
+       <include refid="againOutTicketVO_condition"></include>
+   </select>
+   <update id="updateTicketByBatchNum">
+      update TICKET_INFO
+	       set TICKET_STATUS = #{status},
+	       CHANNEL_REMARK = #{remark,jdbcType=VARCHAR}
+	  where BATCH_NUM in (
+	    <foreach collection="batchNum" separator="," item="item">
+	        #{item}
+	    </foreach>
+	  )
+   </update>
+   <update id="updateTicketStatusError">
+         <foreach collection="tickets" item="item">
+		   update TICKET_INFO
+	       set 
+	          TICKET_STATUS = #{item.ticketStatus},
+	          ticket_remark = #{item.ticketRemark,jdbcType=VARCHAR}
+	       where id = #{item.id};
+	   </foreach>
+   </update>
+   <select id="listTicketInfoFail" resultType="com.hhly.ticket.service.entity.TicketBO">
+   		select 
+          <include refid="ticket_info"></include>
+       from TICKET_INFO
+       where ticket_status in (-1,-2) 
+       <if test="orders != null">
+          and ORDER_CODE in (
+          <foreach collection="orders" separator="," item="item">
+             #{item}
+          </foreach>
+       )
+       </if>
+       <if test="batchNums != null">
+         and batch_num in (
+          <foreach collection="batchNums" separator="," item="item">
+             #{item}
+          </foreach>
+       )
+       </if>
+   </select>
+   <select id="getTicketStatus" resultType="Integer">
+		SELECT
+			ticket_status
+		FROM
+			ticket_info
+		WHERE
+			order_code = #{orderCode}
+   </select>
+   <select id="getChannelMaxNo" resultType="String">
+		SELECT
+			MAX(batch_num)
+		FROM
+			ticket_info
+		WHERE
+			channel_id = #{channelId}
+		AND batch_num LIKE '${beforeNo}%'
+   </select>
+   <select id="countSendTikcet" resultType="int">
+        SELECT
+			count(*)
+		FROM
+			ticket_info
+		WHERE
+			lottery_code = #{lotteryCode}
+		AND ticket_status = 3
+		AND channel_id = #{ticketChannelId}
+   </select>
+   <select id="getChannelTicketContent" resultType="com.hhly.ticket.service.entity.TicketBO">
+   /*master*/
+    SELECT
+     ticket_content ticketcontent,
+	 channel_ticket_content channelticketcontent,
+	 receipt_content_detail receiptContentDetail,
+	 lottery_code lotterycode
+	FROM
+		ticket_info
+	WHERE
+		batch_num = #{batchNum}
+	AND batch_num_seq = #{batchNumSeq}
+   </select>
+   <select id="countTicketStatus" parameterType="com.hhly.ticket.service.entity.TicketBO" resultType="int">
+      select count(*) from ticket_info 
+      where  batch_num = #{batchNum}
+	  AND batch_num_seq = #{batchNumSeq}
+	  and ticket_status = #{ticketStatus}
+   </select>
+   <select id="getTicketInfoSendFail" parameterType="com.hhly.ticket.base.vo.AgainOutTicketVO"
+    resultType="com.hhly.ticket.service.entity.DealerCheckBO" >
+     /*master*/
+  		select 
+			 DISTINCT batch_num batchnum, 
+			 CHANNEL_ID CHANNELID,
+			 lottery_code lotterycode,
+			 LOTTERY_CHILD_CODE lotteryChildCode
+		from ticket_info
+	    where ticket_status in(-1)
+	    and batch_num != ''
+		and batch_num is  not null
+	    <include refid="againOutTicketVO_condition"></include>
+   </select>
+   <sql id="againOutTicketVO_condition">
+   		<if test="orderCode != null and orderCode !=''">
+        and order_Code = #{orderCode}
+       </if>
+       <if test="batchNum != null and batchNum !=''">
+        and batch_num = #{batchNum}
+       </if>
+        <if test="ticketIds != null">
+        and id in (
+          <foreach collection="ticketIds" item="item" separator=",">
+             #{item}
+          </foreach>
+        )
+        </if>
+   </sql>
+   <update id="updateSendTicketAbnormal">
+		update ticket_info
+		set ticket_status = 3
+	    where  ticket_status  = -1
+	         and batch_num in (
+	        	  <foreach collection="batchNums" separator="," item="item">
+	        	     #{item}
+	        	  </foreach>
+	        )
+   </update>
+   <insert id="addChangeTicket" useGeneratedKeys="true" keyColumn="id" keyProperty="id" parameterType="com.hhly.ticket.service.entity.TicketInfoPO">
+	   INSERT INTO ticket_info (
+		id,
+		lottery_code,
+		lottery_name,
+		lottery_issue,
+		user_id,
+		ticket_status,
+		ticket_money,
+		end_ticket_time,
+		content_type,
+		buy_screen,
+		lotto_add,
+		activity_source,
+		multiple_num,
+		ticket_change,
+		ticket_content,
+		lottery_child_code,
+		sale_time,
+		start_match_time,
+		order_detail_id,
+		create_time,
+		modify_time,
+		modify_by,
+		change_id,
+		order_code,
+		winning_status
+	)
+	VALUES
+		(
+	    NULL,
+		#{lotteryCode,jdbcType=DECIMAL},
+		#{lotteryName,jdbcType=VARCHAR},
+		#{lotteryIssue,jdbcType=VARCHAR},
+		#{userId,jdbcType=DECIMAL},
+		#{ticketStatus,jdbcType=DECIMAL},
+		#{ticketMoney,jdbcType=DECIMAL},
+		#{endTicketTime,jdbcType=TIMESTAMP},
+		#{contentType,jdbcType=DECIMAL},
+		#{buyScreen,jdbcType=VARCHAR},
+		#{lottoAdd,jdbcType=DECIMAL},
+		#{activitySource,jdbcType=VARCHAR},
+		#{multipleNum,jdbcType=DECIMAL},
+		#{ticketChange,jdbcType=VARCHAR},
+		#{ticketContent,jdbcType=VARCHAR},
+		#{lotteryChildCode,jdbcType=DECIMAL},
+		#{saleTime,jdbcType=TIMESTAMP},
+		#{startMatchTime,jdbcType=TIMESTAMP},
+		#{orderDetailId,jdbcType=DECIMAL},
+		now(),
+		now(),
+		'system',
+		#{changeId,jdbcType=DECIMAL},
+		#{orderCode,jdbcType=VARCHAR},
+		#{winningStatus,jdbcType=DECIMAL}
+		)
+   </insert>
+   <update id="updateChangeTicket">
+      update ticket_info 
+      set 
+        change_id = #{changeId}
+      where id = #{id}
+   </update>
+   <update id="updateTicketChannel">
+  	  update ticket_info
+      set 
+        ticket_change = #{ticketChange},
+        order_code = ''
+      where order_detail_id =  #{orderDetailId}
+      and   change_id = #{changeId}
+   </update>
+   
+   <select id="getOrderCode" resultType="String">
+     select order_code from ticket_info where id  = #{id}
+   </select>
+</mapper>

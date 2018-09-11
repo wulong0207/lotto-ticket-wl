@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hhly.ticket.persistence.dao.TicketConfigDaoMapper">
+	<select id="getTicketConfig" resultType="com.hhly.ticket.service.entity.ChannelBO">
+	  select 
+	    TC.ID,
+		TC.TICKET_CHANNEL_ID TICKETCHANNELID,
+		TC.LOTTERY_CODE LOTTERYCODE,
+		TC.SEND_STATUS SENDSTATUS,
+		TC.PRE_BATCH PREBATCH,
+		TC.PRE_TICKET PRETICKET,
+		TC.SEND_WEIGHT SENDWEIGHT,
+		TC.SEND_EACH_BATCH SENDEACHBATCH,
+		TC.THREAD_COUNT THREADCOUNT,
+		TC.SEARCH_AUTO SEARCHAUTO,
+		TC.SEARCH_IDENT SEARCHIDENT,
+		TC.SEARCH_MAX_TICKET SEARCHMAXTICKET,
+		TC.END_SEND_SPACE ENDSENDSPACE,
+		TC.ALLOW_SEND_TIME ALLOWSENDTIME,
+		TC.STOP_LOTTERY STOPLOTTERY,
+	    tl.send_Url sendUrl,
+	    tl.SEARCH_URL SEARCHURL,
+	    tl.DRAWER_ACCOUNT DRAWERACCOUNT,
+	    tl.ACCOUNT_PASSWORD ACCOUNTPASSWORD,
+	    Tc.dealer_end_time dealerEndTime,
+	    tc.start_money startmoney,
+	    tc.end_moeny endMoeny
+  	  from TICKET_CONFIG tc
+      join TICKET_CHANNEL tl on tc.ticket_channel_id = tl.ticket_channel_id
+	  where  tl.TICKET_STATUS = 1
+	  <if test="sendStatus != null and sendStatus != ''">
+	     and  tc.send_status = #{sendStatus}
+	  </if>
+	  <if test="lotteryCode != null and lotteryCode != ''">
+	     and TC.LOTTERY_CODE = #{lotteryCode}
+	  </if>
+	  <if test="channelId != null and channelId != ''">
+	     and TC.ticket_channel_id = #{channelId}
+	  </if>
+	  order by tc.SEND_WEIGHT desc
+	</select>
+	<select id="getChannel" resultType="com.hhly.ticket.service.entity.ChannelBO">
+	   select 
+	   		DRAWER_ACCOUNT DRAWERACCOUNT,
+	   		ACCOUNT_PASSWORD ACCOUNTPASSWORD,
+	   		drawer_name drawername,
+	   		auth_code authcode
+	   from TICKET_CHANNEL
+	   where TICKET_CHANNEL_ID = #{channelId}
+	</select>
+	<update id="updateChannelBalance">
+		UPDATE ticket_channel
+		SET account_balance = #{balance}
+		WHERE
+			ticket_channel_id = #{channelId}
+	</update>
+</mapper>

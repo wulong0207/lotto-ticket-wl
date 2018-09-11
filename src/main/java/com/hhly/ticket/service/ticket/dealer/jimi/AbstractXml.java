@@ -1,0 +1,31 @@
+package com.hhly.ticket.service.ticket.dealer.jimi;
+
+import com.hhly.ticket.base.exception.ServiceRuntimeException;
+import com.hhly.ticket.service.ticket.IXml;
+import com.hhly.ticket.util.XmlUtil;
+import com.thoughtworks.xstream.XStream;
+/**
+ * @desc 
+ * @author jiangwei
+ * @date 2017年12月12日
+ * @company 益彩网络科技公司
+ * @version 1.0
+ */
+public class AbstractXml implements IXml {
+
+	private static final XStream  XS_TO_XML;
+	
+	static{
+		XS_TO_XML= XmlUtil.createXStream();
+	}
+	
+	@Override
+	public String toXml() {
+		return XS_TO_XML.toXML(this);
+	}
+
+	@Override
+	public <T> T fromXML(String xml) {
+		throw new ServiceRuntimeException("请实现");
+	}
+}
